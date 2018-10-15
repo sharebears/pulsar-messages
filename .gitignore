@@ -1,0 +1,12 @@
+__pycache__
+config.py
+*.egg-info
+
+.*
+!.gitignore
+!.flake8
+!.coveragerc
+!.travis.yml
+!.gitlab-ci.yml
+!.nojekyll
+!.gitkeep
