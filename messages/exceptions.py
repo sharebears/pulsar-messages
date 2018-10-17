@@ -1,0 +1,2 @@
+class PMStateNotFound(Exception):
+    pass
