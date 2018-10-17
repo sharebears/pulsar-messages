@@ -68,7 +68,7 @@ class PMConversationState(db.Model, MultiPKMixin):
     def in_inbox(cls):
         return select(exists().where(and_(
             PMMessage.conv_id == cls.conv_id,
-            PMMessage.user_id == cls.user_id,
+            PMMessage.user_id != cls.user_id,
             ))).as_scalar()
         pass
 
@@ -76,7 +76,7 @@ class PMConversationState(db.Model, MultiPKMixin):
     def in_sentbox(cls):
         return select(~exists().where(and_(
             PMMessage.conv_id == cls.conv_id,
-            PMMessage.user_id == cls.user_id,
+            PMMessage.user_id != cls.user_id,
             ))).as_scalar()
 
     @classmethod
