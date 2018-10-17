@@ -1,19 +1,20 @@
-from typing import Optional, List
+from typing import List, Optional
 
 import flask
-
-from sqlalchemy import func, select, and_, exists
+from sqlalchemy import and_, exists, func, select
 from sqlalchemy.ext.hybrid import hybrid_property
 
 from core import db
-from core.mixins import SinglePKMixin, MultiPKMixin
+from core.mixins import MultiPKMixin, SinglePKMixin
 from core.users.models import User
 from messages.exceptions import PMStateNotFound
+from messages.serializers import PMConversationSerializer, PMMessageSerializer
 
 
 class PMConversation(db.Model, SinglePKMixin):
     __tablename__ = 'pm_conversations'
     __cache_key__ = 'pm_conversation_{id}'
+    __serializer__ = PMConversationSerializer
 
     id = db.Column(db.Integer, primary_key=True)
     topic = db.Column(db.String(128), nullable=False)
@@ -92,7 +93,7 @@ class PMConversationState(db.Model, MultiPKMixin):
     @classmethod
     def get_users_in_conversation(cls, conv_id: int) -> List[User]:
         return cls.get_many(
-            key=cls.__cache_key_recipient__.format(conv_id=conv_id),
+            key=cls.__cache_key_members__.format(conv_id=conv_id),
             filter=cls.conv_id == conv_id,
             order=cls.time_added.asc())
 
@@ -130,6 +131,7 @@ class PMMessage(db.Model, SinglePKMixin):
     __tablename__ = 'pm_messages'
     __cache_key__ = 'pm_messages_{id}'
     __cache_key_of_conversation__ = 'pm_messages_conv_{conv_id}'
+    __serializer__ = PMMessageSerializer
 
     id = db.Column(db.Integer, primary_key=True)
     conv_id = db.Column(
