@@ -1,10 +1,14 @@
-from core import db, cache
 from typing import Optional, List
+
+import flask
+
 from sqlalchemy import func, select, and_, exists
 from sqlalchemy.ext.hybrid import hybrid_property
-from messages.exceptions import PMStateNotFound
+
+from core import db
 from core.mixins import SinglePKMixin, MultiPKMixin
 from core.users.models import User
+from messages.exceptions import PMStateNotFound
 
 
 class PMConversation(db.Model, SinglePKMixin):
@@ -45,6 +49,10 @@ class PMConversation(db.Model, SinglePKMixin):
             self._messages = PMMessage.from_conversation(self.id)
         return self._messages
 
+    @property
+    def users(self):
+        return PMConversationState.get_users_in_conversation(self.conv_id)
+
     def set_state(self, user_id):
         """
         Assign the state of the PM for a user to attributes of this object. This makes
@@ -57,23 +65,36 @@ class PMConversation(db.Model, SinglePKMixin):
             raise PMStateNotFound
         self.read = self._conv_state.read
         self.sticky = self._conv_state.sticky
-        self.recipient = self._conv_state.recipient
 
     def set_messages(self,
                      page: int = 1,
                      limit: int = 50) -> None:
         self._messages = PMMessage.from_conversation(self.id, page, limit)
 
+    def belongs_to_user(self) -> bool:
+        """
+        Override of base class method to check against all users with a conversation state.
+        """
+        return flask.g.user is not None and flask.g.user.id in {u.id for u in self.users}
+
 
 class PMConversationState(db.Model, MultiPKMixin):
     __tablename__ = 'pm_conversations_state'
     __cache_key__ = 'pm_convesations_state_{conv_id}_{user_id}'
-    __cache_key_recipient__ = 'pm_conversations_state_{conv_id}_{user_id}_recipient'
+    __cache_key_members__ = 'pm_conversations_state_{conv_id}_members'
 
     conv_id = db.Column(db.Integer, db.ForeignKey('pm_conversations.id'), primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), primary_key=True)
     read = db.Column(db.Boolean, nullable=False, server_default='f')
     sticky = db.Column(db.Boolean, nullable=False, server_default='f', index=True)
+    time_added = db.Column(db.Datetime(timezone=True), nullable=False, server_default=func.now())
+
+    @classmethod
+    def get_users_in_conversation(cls, conv_id: int) -> List[User]:
+        return cls.get_many(
+            key=cls.__cache_key_recipient__.format(conv_id=conv_id),
+            filter=cls.conv_id == conv_id,
+            order=cls.time_added.asc())
 
     @hybrid_property
     def in_inbox(cls):
@@ -103,18 +124,6 @@ class PMConversationState(db.Model, MultiPKMixin):
         return super()._new(
             conv_id=conv_id,
             user_id=user_id)
-
-    @property
-    def recipient(self):
-        cache_key = self.__cache_key_recipient__.format(conv_id=self.conv_id, user_id=self.user_id)
-        recipient_id = cache.get(cache_key)
-        if not recipient_id:
-            recipient_id = db.session.query(PMConversationState.user_id).where(and_(
-                PMConversationState.conv_id == self.conv_id,
-                PMConversationState.user_id != self.user_id,
-                )).scalar()
-            cache.set(cache_key, recipient_id, timeout=3600 * 24 * 28)
-        return User.from_pk(recipient_id)
 
 
 class PMMessage(db.Model, SinglePKMixin):
