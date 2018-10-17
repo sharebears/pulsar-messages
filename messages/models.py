@@ -39,6 +39,12 @@ class PMConversation(db.Model, SinglePKMixin):
             contents=initial_message)
         return pm_conversation
 
+    @property
+    def messages(self):
+        if not hasattr(self, '_messages'):
+            self._messages = PMMessage.from_conversation(self.id)
+        return self._messages
+
     def set_state(self, user_id):
         """
         Assign the state of the PM for a user to attributes of this object. This makes
@@ -52,12 +58,6 @@ class PMConversation(db.Model, SinglePKMixin):
         self.read = self._conv_state.read
         self.sticky = self._conv_state.sticky
         self.recipient = self._conv_state.recipient
-
-    @property
-    def messages(self):
-        if not hasattr(self, '_messages'):
-            self._messages = PMMessage.from_conversation(self.id)
-        return self._messages
 
     def set_messages(self,
                      page: int = 1,
@@ -159,11 +159,3 @@ class PMMessage(db.Model, SinglePKMixin):
             conv_id=conv_id,
             user_id=user_id,
             contents=contents)
-
-
-class PMForward(db.Model, MultiPKMixin):
-    __tablename__ = 'pm_forwards'
-
-    conv_id = db.Column(db.Integer, db.ForeignKey('pm_conversations.id'), primary_key=True)
-    from_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), primary_key=True)
-    to_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), primary_key=True)
