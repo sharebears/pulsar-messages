@@ -1,5 +1,5 @@
 from core import db, cache
-from typing import Optional
+from typing import Optional, List
 from sqlalchemy import func, select, and_, exists
 from sqlalchemy.ext.hybrid import hybrid_property
 from messages.exceptions import PMStateNotFound
@@ -53,6 +53,17 @@ class PMConversation(db.Model, SinglePKMixin):
         self.sticky = self._conv_state.sticky
         self.recipient = self._conv_state.recipient
 
+    @property
+    def messages(self):
+        if not hasattr(self, '_messages'):
+            self._messages = PMMessage.from_conversation(self.id)
+        return self._messages
+
+    def set_messages(self,
+                     page: int = 1,
+                     limit: int = 50) -> None:
+        self._messages = PMMessage.from_conversation(self.id, page, limit)
+
 
 class PMConversationState(db.Model, MultiPKMixin):
     __tablename__ = 'pm_conversations_state'
@@ -74,9 +85,9 @@ class PMConversationState(db.Model, MultiPKMixin):
 
     @hybrid_property
     def in_sentbox(cls):
-        return select(~exists().where(and_(
+        return select(exists().where(and_(
             PMMessage.conv_id == cls.conv_id,
-            PMMessage.user_id != cls.user_id,
+            PMMessage.user_id == cls.user_id,
             ))).as_scalar()
 
     @classmethod
@@ -118,6 +129,21 @@ class PMMessage(db.Model, SinglePKMixin):
     time = db.Column(
         db.DateTime(timezone=True), nullable=False, index=True, server_default=func.now())
     contents = db.Column(db.Text, nullable=False)
+
+    @classmethod
+    def from_conversation(cls,
+                          conv_id: int,
+                          page: int = 1,
+                          limit: int = 50) -> List['PMMessage']:
+        """
+        Get a list of private messages in a conversation.
+        """
+        return cls.get_many(
+            key=cls.__cache_key_of_conversation__.format(conv_id=conv_id),
+            filter=cls.conv_id == conv_id,
+            order=cls.time.asc(),
+            page=page,
+            limit=limit)
 
     @classmethod
     def new(cls,
