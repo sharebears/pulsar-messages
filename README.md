@@ -1,3 +1,3 @@
-# pulsar-plugin
+# pulsar-messages
 
-This is a template repository for a pulsar plugin. Use this when creating a new plugin.
+This is the (private) messages plugin for pulsar.
