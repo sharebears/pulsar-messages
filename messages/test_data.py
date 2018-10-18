@@ -17,21 +17,29 @@ class MessagesPopulator(TestDataPopulator):
             """)
         db.session.execute(
             """
-            INSERT INTO pm_conversations_state (conv_id, user_id, read, sticky, deleted) VALUES
-            (1, 1, 'f', 'f', 'f'), (1, 2, 'f', 'f', 'f'),
-            (2, 1, 't', 't', 'f'), (2, 2, 'f', 'f', 'f'), (2, 3, 'f', 'f', 'f'),
-            (3, 1, 'f', 'f', 'f'), (3, 2, 'f', 'f', 'f'), (3, 3, 'f', 'f', 't'),
-            (4, 2, 'f', 'f', 'f'), (4, 3, 'f', 'f', 'f')
+            INSERT INTO pm_conversations_state (
+                conv_id, user_id, read, sticky, deleted, last_response_time
+            ) VALUES
+            (1, 1, 'f', 'f', 'f', NOW() - INTERVAL '2 DAYS'),
+            (1, 2, 'f', 'f', 'f', NOW() - INTERVAL '3 DAYS'),
+            (2, 1, 't', 't', 'f', NOW() - INTERVAL '1 DAY'),
+            (2, 2, 'f', 'f', 'f', NOW() - INTERVAL '1 DAY'),
+            (2, 3, 'f', 'f', 'f', NULL),
+            (3, 1, 'f', 'f', 'f', NULL),
+            (3, 2, 'f', 'f', 'f', NOW() - INTERVAL '12 HOURS'),
+            (3, 3, 'f', 'f', 't', NOW() - INTERVAL '12 HOURS'),
+            (4, 2, 'f', 'f', 'f', NULL),
+            (4, 3, 'f', 'f', 'f', NOW())
             """)
         db.session.execute(
             """
-            INSERT INTO pm_messages (conv_id, user_id, contents) VALUES
-            (1, 1, 'boi'),
-            (2, 3, 'i hate you both!'),
-            (3, 1, 'i love love love you!'),
-            (4, 1, 'testing'),
-            (1, 2, 'gal'),
-            (2, 3, 'a lot!')
+            INSERT INTO pm_messages (conv_id, user_id, contents, time) VALUES
+            (1, 1, 'boi', NOW() - INTERVAL '3 DAYS'),
+            (1, 2, 'gal', NOW() - INTERVAL '2 DAYS'),
+            (2, 3, 'i hate you both!', NOW() - INTERVAL '2 DAYS'),
+            (2, 3, 'a lot!', NOW() - INTERVAL '1 DAY'),
+            (3, 1, 'i love love love you!', NOW() - INTERVAL '12 HOURS'),
+            (4, 2, 'testing', NOW())
             """)
         cls.add_permissions(
             PMPermissions.VIEW,

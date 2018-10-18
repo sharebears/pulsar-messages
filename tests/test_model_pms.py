@@ -1,6 +1,8 @@
 import pytest
+import pytz
+from datetime import datetime
 from conftest import check_dictionary, add_permissions
-from core import NewJSONEncoder
+from core import NewJSONEncoder, _403Exception
 from messages.models import PMConversation, PMMessage
 from messages.exceptions import PMStateNotFound
 from messages.permissions import PMPermissions
@@ -35,6 +37,47 @@ def test_create_new_conversation_and_messages_from_conversation(client):
     assert pm_messages[0].user_id == 3
 
 
+def test_make_message(client):
+    pm = PMConversation.from_pk(1)
+    pm.set_state(1)
+    assert (datetime.utcnow().replace(tzinfo=pytz.utc) - pm.last_response_time
+            ).total_seconds() > 60 * 60
+    PMMessage.new(conv_id=1, user_id=2, contents='hi')
+    pm.set_state(1)
+    assert (datetime.utcnow().replace(tzinfo=pytz.utc) - pm.last_response_time
+            ).total_seconds() < 15
+
+
+def test_conversation_from_user_inbox(client):
+    convs = PMConversation.from_user(1)
+    assert len(convs) == 2
+    assert all(c.id in {1, 2} for c in convs)
+
+
+def test_conversation_from_user_sentbox(client):
+    convs = PMConversation.from_user(1, filter='sentbox')
+    assert len(convs) == 3
+    assert all(c.id in {1, 2, 3} for c in convs)
+
+
+def test_conversation_from_user_deletebox(app, authed_client):
+    add_permissions(app, PMPermissions.VIEW_DELETED)
+    convs = PMConversation.from_user(3, filter='deleted')
+    assert len(convs) == 1
+    assert convs[0].id == 3
+
+
+def test_conversation_from_user_deletebox_empty(app, authed_client):
+    add_permissions(app, PMPermissions.VIEW_DELETED)
+    convs = PMConversation.from_user(1, filter='deleted')
+    assert len(convs) == 0
+
+
+def test_conversation_from_user_deletebox_no_perm(authed_client):
+    with pytest.raises(_403Exception):
+        PMConversation.from_user(1, filter='deleted')
+
+
 def test_conversation_set_state(client):
     pm = PMConversation.from_pk(2)
     pm.set_state(2)
@@ -64,14 +107,14 @@ def test_set_messages_limit(client):
     pm = PMConversation.from_pk(2)
     pm.set_messages(page=1, limit=1)
     assert len(pm.messages) == 1
-    assert pm.messages[0].id == 2
+    assert pm.messages[0].id == 3
 
 
 def test_set_messages_pagination(client):
     pm = PMConversation.from_pk(2)
     pm.set_messages(page=2, limit=1)
     assert len(pm.messages) == 1
-    assert pm.messages[0].id == 6
+    assert pm.messages[0].id == 4
 
 
 def test_serialize_basic_perms(authed_client):

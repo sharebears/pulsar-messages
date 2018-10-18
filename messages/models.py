@@ -2,7 +2,9 @@ from typing import List, Optional
 from datetime import datetime
 
 import flask
-from sqlalchemy import and_, func
+from sqlalchemy import and_, exists, func, select
+from sqlalchemy.ext.hybrid import hybrid_property
+
 
 from core import db, _403Exception, cache
 from core.mixins import MultiPKMixin, SinglePKMixin
@@ -25,9 +27,9 @@ class PMConversation(db.Model, SinglePKMixin):
     @classmethod
     def from_user(cls,
                   user_id: int,
-                  page: int,
-                  limit: int,
-                  filter: str) -> List['PMConversation']:
+                  page: int = 1,
+                  limit: int = 50,
+                  filter: str = 'inbox') -> List['PMConversation']:
         if filter == 'deleted' and not flask.g.user.has_permission(PMPermissions.VIEW_DELETED):
             raise _403Exception
         filters = [PMConversationState.user_id == user_id,
@@ -35,11 +37,12 @@ class PMConversation(db.Model, SinglePKMixin):
         if filter == 'inbox':
             filters.append(PMConversationState.last_response_time.isnot(None))
         elif filter == 'sentbox':
-            filters.append(PMConversationState.last_response_time.is_(None))
+            filters.append(PMConversationState.in_sentbox.is_(True))
 
         conversations = cls.get_many(
             key=cls.__cache_key_of_user__.format(user_id=user_id, filter=filter),
-            filter=db.session.query(PMConversationState.user_id).filter(and_(*filters)).exists(),
+            filter=cls.id.in_(db.session.query(
+                PMConversationState.conv_id).filter(and_(*filters))),
             page=page,
             limit=limit)
         for conv in conversations:
@@ -125,9 +128,17 @@ class PMConversationState(db.Model, MultiPKMixin):
     time_added = db.Column(db.DateTime(timezone=True), nullable=False, server_default=func.now())
     last_response_time = db.Column(db.DateTime(timezone=True))
 
+    @hybrid_property
+    def in_sentbox(cls):
+        return select([exists().where(and_(
+            PMMessage.conv_id == cls.conv_id,
+            PMMessage.user_id == cls.user_id,
+            cls.deleted == 'f',
+            ))]).as_scalar()
+
     @classmethod
     def get_users_in_conversation(cls, conv_id: int) -> List[User]:
-        return User.get_many(pks=cls.get_users_in_conversation())
+        return User.get_many(pks=cls.get_user_ids_in_conversation(conv_id))
 
     @classmethod
     def get_user_ids_in_conversation(cls, conv_id: int) -> List[int]:
@@ -157,7 +168,7 @@ class PMConversationState(db.Model, MultiPKMixin):
                                   sender_id: int) -> None:
         db.session.query(cls).filter(and_(
             cls.conv_id == conv_id,
-            cls.sender_id != sender_id,
+            cls.user_id != sender_id,
             )).update({'last_response_time': datetime.utcnow()})
         db.session.commit()
         cache.delete_many(*(cls.create_cache_key({
