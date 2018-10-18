@@ -41,7 +41,7 @@ class PMConversation(db.Model, SinglePKMixin):
                 user_id=user_id)
         PMMessage.new(
             conv_id=pm_conversation.id,
-            user_id=user_id,
+            user_id=sender_id,
             contents=initial_message)
         return pm_conversation
 
@@ -52,8 +52,8 @@ class PMConversation(db.Model, SinglePKMixin):
         return self._messages
 
     @property
-    def users(self):
-        return PMConversationState.get_users_in_conversation(self.conv_id)
+    def members(self):
+        return PMConversationState.get_users_in_conversation(self.id)
 
     def set_state(self, user_id):
         """
@@ -77,7 +77,7 @@ class PMConversation(db.Model, SinglePKMixin):
         """
         Override of base class method to check against all users with a conversation state.
         """
-        return flask.g.user is not None and flask.g.user.id in {u.id for u in self.users}
+        return flask.g.user is not None and flask.g.user.id in {u.id for u in self.members}
 
 
 class PMConversationState(db.Model, MultiPKMixin):
@@ -94,10 +94,12 @@ class PMConversationState(db.Model, MultiPKMixin):
 
     @classmethod
     def get_users_in_conversation(cls, conv_id: int) -> List[User]:
-        return cls.get_many(
+        user_ids = cls.get_col_from_many(
+            column=cls.user_id,
             key=cls.__cache_key_members__.format(conv_id=conv_id),
             filter=cls.conv_id == conv_id,
             order=cls.time_added.asc())
+        return User.get_many(pks=user_ids)
 
     @hybrid_property
     def in_inbox(cls):
@@ -140,7 +142,7 @@ class PMMessage(db.Model, SinglePKMixin):
     id = db.Column(db.Integer, primary_key=True)
     conv_id = db.Column(
         db.Integer, db.ForeignKey('pm_conversations.id'), nullable=False, index=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     time = db.Column(
         db.DateTime(timezone=True), nullable=False, index=True, server_default=func.now())
     contents = db.Column(db.Text, nullable=False)

@@ -1,6 +1,7 @@
 from core import db
 from core.mixins import TestDataPopulator
 from messages.models import PMConversation, PMConversationState, PMMessage
+from messages.permissions import PMPermissions
 
 
 class MessagesPopulator(TestDataPopulator):
@@ -22,6 +23,11 @@ class MessagesPopulator(TestDataPopulator):
             sender_id=1,
             recipient_ids=[3, 2],
             initial_message='i love love love you!')
+        PMConversation.new(
+            topic='detingstings',
+            sender_id=2,
+            recipient_ids=[3],
+            initial_message='testing')
         PMMessage.new(
             conv_id=pm_1.id,
             user_id=2,
@@ -33,6 +39,14 @@ class MessagesPopulator(TestDataPopulator):
         PMConversationState.from_attrs(
             conv_id=pm_3.id,
             user_id=3).deleted = True
+        pm_state = PMConversationState.from_attrs(conv_id=pm_2.id, user_id=1)
+        pm_state.read = True
+        pm_state.sticky = True
+        cls.add_permissions(
+            PMPermissions.VIEW,
+            PMPermissions.CREATE,
+            PMPermissions.SEND,
+            PMPermissions.DELETE)
         db.session.commit()
 
     @classmethod
@@ -40,5 +54,5 @@ class MessagesPopulator(TestDataPopulator):
         db.engine.execute('DELETE FROM pm_messages')
         db.engine.execute('DELETE FROM pm_conversations_state')
         db.engine.execute('DELETE FROM pm_conversations')
-        db.engine.execute('ALTER SEQUENCE pm_messages_id_seq RESTART WITH 1')
         db.engine.execute('ALTER SEQUENCE pm_conversations_id_seq RESTART WITH 1')
+        db.engine.execute('ALTER SEQUENCE pm_messages_id_seq RESTART WITH 1')
