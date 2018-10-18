@@ -25,16 +25,17 @@ class PMConversation(db.Model, SinglePKMixin):
     def new(cls,
             topic: str,
             sender_id: int,
-            recipient_id: int,
+            recipient_ids: List[int],
             initial_message: str) -> Optional['PMConversation']:
         """
         Create a private message object, set states for the sender and receiver,
         and create the initial message.
         """
         User.is_valid(sender_id, error=True)
-        User.is_valid(recipient_id, error=True)
+        for rid in recipient_ids:
+            User.is_valid(rid, error=True)
         pm_conversation = super()._new(topic=topic)
-        for user_id in [sender_id, recipient_id]:
+        for user_id in (sender_id, *recipient_ids):
             PMConversationState.new(
                 conv_id=pm_conversation.id,
                 user_id=user_id)
@@ -88,7 +89,8 @@ class PMConversationState(db.Model, MultiPKMixin):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), primary_key=True)
     read = db.Column(db.Boolean, nullable=False, server_default='f')
     sticky = db.Column(db.Boolean, nullable=False, server_default='f', index=True)
-    time_added = db.Column(db.Datetime(timezone=True), nullable=False, server_default=func.now())
+    deleted = db.Column(db.Boolean, nullable=False, server_default='f', index=True)
+    time_added = db.Column(db.DateTime(timezone=True), nullable=False, server_default=func.now())
 
     @classmethod
     def get_users_in_conversation(cls, conv_id: int) -> List[User]:
@@ -102,6 +104,7 @@ class PMConversationState(db.Model, MultiPKMixin):
         return select(exists().where(and_(
             PMMessage.conv_id == cls.conv_id,
             PMMessage.user_id != cls.user_id,
+            cls.deleted == 'f',
             ))).as_scalar()
         pass
 
@@ -110,6 +113,7 @@ class PMConversationState(db.Model, MultiPKMixin):
         return select(exists().where(and_(
             PMMessage.conv_id == cls.conv_id,
             PMMessage.user_id == cls.user_id,
+            cls.deleted == 'f',
             ))).as_scalar()
 
     @classmethod
