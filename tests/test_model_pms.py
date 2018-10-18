@@ -1,6 +1,9 @@
 import pytest
+from conftest import check_dictionary, add_permissions
+from core import NewJSONEncoder
 from messages.models import PMConversation, PMMessage
 from messages.exceptions import PMStateNotFound
+from messages.permissions import PMPermissions
 
 
 def test_get_conversation(client):
@@ -69,3 +72,28 @@ def test_set_messages_pagination(client):
     pm.set_messages(page=2, limit=1)
     assert len(pm.messages) == 1
     assert pm.messages[0].id == 6
+
+
+def test_serialize_basic_perms(authed_client):
+    pm = PMConversation.from_pk(1)
+    data = NewJSONEncoder().default(pm)
+    check_dictionary(data, {
+        'id': 1,
+        'topic': 'New Private Message!',
+        })
+
+
+def test_serialize_view_fail(authed_client):
+    pm = PMConversation.from_pk(4)
+    data = NewJSONEncoder().default(pm)
+    assert data is None
+
+
+def test_serialize_view_others(app, authed_client):
+    add_permissions(app, PMPermissions.VIEW_OTHERS)
+    pm = PMConversation.from_pk(4)
+    data = NewJSONEncoder().default(pm)
+    check_dictionary(data, {
+        'id': 4,
+        'topic': 'detingstings',
+        })

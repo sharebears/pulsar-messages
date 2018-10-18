@@ -7,7 +7,7 @@ class PMConversationSerializer(Serializer):
     topic = Attribute(permission=PMPermissions.VIEW_OTHERS)
     last_updated_time = Attribute(permission=PMPermissions.VIEW_OTHERS)
     messages = Attribute(nested=False, permission=PMPermissions.VIEW_OTHERS)
-    users = Attribute(nested=('id', 'name'), permission=PMPermissions.VIEW_OTHERS)
+    members = Attribute(nested=('id', 'name'), permission=PMPermissions.VIEW_OTHERS)
 
 
 class PMMessageSerializer(Serializer):
