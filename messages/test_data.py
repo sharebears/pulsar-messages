@@ -1,6 +1,5 @@
 from core import db
 from core.mixins import TestDataPopulator
-from messages.models import PMConversation, PMConversationState, PMMessage
 from messages.permissions import PMPermissions
 
 
@@ -8,40 +7,32 @@ class MessagesPopulator(TestDataPopulator):
 
     @classmethod
     def populate(cls):
-        pm_1 = PMConversation.new(
-            topic='New Private Message!',
-            sender_id=1,
-            recipient_ids=[2],
-            initial_message='boi')
-        pm_2 = PMConversation.new(
-            topic='New Group Message!',
-            sender_id=3,
-            recipient_ids=[1, 2],
-            initial_message='i hate you both!')
-        pm_3 = PMConversation.new(
-            topic='New Group Message!',
-            sender_id=1,
-            recipient_ids=[3, 2],
-            initial_message='i love love love you!')
-        PMConversation.new(
-            topic='detingstings',
-            sender_id=2,
-            recipient_ids=[3],
-            initial_message='testing')
-        PMMessage.new(
-            conv_id=pm_1.id,
-            user_id=2,
-            contents='gal')
-        PMMessage.new(
-            conv_id=pm_2.id,
-            user_id=3,
-            contents='a lot!')
-        PMConversationState.from_attrs(
-            conv_id=pm_3.id,
-            user_id=3).deleted = True
-        pm_state = PMConversationState.from_attrs(conv_id=pm_2.id, user_id=1)
-        pm_state.read = True
-        pm_state.sticky = True
+        db.session.execute(
+            """
+            INSERT INTO pm_conversations (topic) VALUES
+            ('New Private Message!'),
+            ('New Group Message!'),
+            ('New Group Message!'),
+            ('detingstings')
+            """)
+        db.session.execute(
+            """
+            INSERT INTO pm_conversations_state (conv_id, user_id, read, sticky, deleted) VALUES
+            (1, 1, 'f', 'f', 'f'), (1, 2, 'f', 'f', 'f'),
+            (2, 1, 't', 't', 'f'), (2, 2, 'f', 'f', 'f'), (2, 3, 'f', 'f', 'f'),
+            (3, 1, 'f', 'f', 'f'), (3, 2, 'f', 'f', 'f'), (3, 3, 'f', 'f', 't'),
+            (4, 2, 'f', 'f', 'f'), (4, 3, 'f', 'f', 'f')
+            """)
+        db.session.execute(
+            """
+            INSERT INTO pm_messages (conv_id, user_id, contents) VALUES
+            (1, 1, 'boi'),
+            (2, 3, 'i hate you both!'),
+            (3, 1, 'i love love love you!'),
+            (4, 1, 'testing'),
+            (1, 2, 'gal'),
+            (2, 3, 'a lot!')
+            """)
         cls.add_permissions(
             PMPermissions.VIEW,
             PMPermissions.CREATE,

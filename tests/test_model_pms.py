@@ -76,6 +76,7 @@ def test_set_messages_pagination(client):
 
 def test_serialize_basic_perms(authed_client):
     pm = PMConversation.from_pk(1)
+    pm.set_state(1)
     data = NewJSONEncoder().default(pm)
     check_dictionary(data, {
         'id': 1,
@@ -92,6 +93,7 @@ def test_serialize_view_fail(authed_client):
 def test_serialize_view_others(app, authed_client):
     add_permissions(app, PMPermissions.VIEW_OTHERS)
     pm = PMConversation.from_pk(4)
+    pm.set_state(2)
     data = NewJSONEncoder().default(pm)
     check_dictionary(data, {
         'id': 4,

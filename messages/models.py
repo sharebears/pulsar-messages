@@ -4,29 +4,56 @@ import flask
 from sqlalchemy import and_, exists, func, select
 from sqlalchemy.ext.hybrid import hybrid_property
 
-from core import db
+from core import db, _403Exception
 from core.mixins import MultiPKMixin, SinglePKMixin
 from core.users.models import User
 from messages.exceptions import PMStateNotFound
+from messages.permissions import PMPermissions
 from messages.serializers import PMConversationSerializer, PMMessageSerializer
 
 
 class PMConversation(db.Model, SinglePKMixin):
     __tablename__ = 'pm_conversations'
     __cache_key__ = 'pm_conversation_{id}'
+    __cache_key_of_user__ = 'pm_conversations_users_{user_id}_{filter}'
     __serializer__ = PMConversationSerializer
 
     id = db.Column(db.Integer, primary_key=True)
     topic = db.Column(db.String(128), nullable=False)
-    last_updated_time = db.Column(
-        db.DateTime(timezone=True), nullable=False, server_default=func.now(), index=True)
+    locked = db.Column(db.Boolean, nullable=False, server_default='f')
+
+    @classmethod
+    def from_user(cls,
+                  user_id: int,
+                  page: int,
+                  limit: int,
+                  filter: str) -> List['PMConversation']:
+        if filter == 'deleted' and not flask.g.user.has_permission(PMPermissions.VIEW_DELETED):
+            raise _403Exception
+        filters = [PMConversationState.user_id == user_id,
+                   PMConversationState.deleted == ('f' if filter != 'deleted' else 't'),
+                   ]
+        if filter == 'inbox':
+            filters.append(PMConversationState.in_inbox == 't')
+        elif filter == 'sentbox':
+            filters.append(PMConversationState.in_sentbox == 't')
+
+        conversations = cls.get_many(
+            key=cls.__cache_key_of_user__.format(user_id=user_id, filter=filter),
+            filter=db.session.query(PMConversationState.user_id).filter(and_(*filters)).exists(),
+            page=page,
+            limit=limit)
+        for conv in conversations:
+            conv.set_state(user_id)
+        return conversations
 
     @classmethod
     def new(cls,
             topic: str,
             sender_id: int,
             recipient_ids: List[int],
-            initial_message: str) -> Optional['PMConversation']:
+            initial_message: str,
+            locked: bool = False) -> Optional['PMConversation']:
         """
         Create a private message object, set states for the sender and receiver,
         and create the initial message.
@@ -34,11 +61,16 @@ class PMConversation(db.Model, SinglePKMixin):
         User.is_valid(sender_id, error=True)
         for rid in recipient_ids:
             User.is_valid(rid, error=True)
-        pm_conversation = super()._new(topic=topic)
+
+        pm_conversation = super()._new(
+            topic=topic,
+            locked=locked)
+
         for user_id in (sender_id, *recipient_ids):
             PMConversationState.new(
                 conv_id=pm_conversation.id,
                 user_id=user_id)
+
         PMMessage.new(
             conv_id=pm_conversation.id,
             user_id=sender_id,
@@ -67,6 +99,7 @@ class PMConversation(db.Model, SinglePKMixin):
             raise PMStateNotFound
         self.read = self._conv_state.read
         self.sticky = self._conv_state.sticky
+        self.last_response_time = self._conv_state.last_response_time
 
     def set_messages(self,
                      page: int = 1,
@@ -108,7 +141,6 @@ class PMConversationState(db.Model, MultiPKMixin):
             PMMessage.user_id != cls.user_id,
             cls.deleted == 'f',
             ))).as_scalar()
-        pass
 
     @hybrid_property
     def in_sentbox(cls):
@@ -117,6 +149,13 @@ class PMConversationState(db.Model, MultiPKMixin):
             PMMessage.user_id == cls.user_id,
             cls.deleted == 'f',
             ))).as_scalar()
+
+    @hybrid_property
+    def last_response_time(cls):
+        return select([PMMessage.time]).where(and_(
+            PMMessage.conv_id == cls.conv_id,
+            PMMessage.user_id != cls.user_id,
+            )).order_by(PMMessage.time.desc()).limit(1).as_scalar()
 
     @classmethod
     def new(cls,
