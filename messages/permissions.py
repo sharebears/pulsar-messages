@@ -9,3 +9,4 @@ class PMPermissions(PermissionsEnum):
     SEND = 'messages_send'
     DELETE = 'messages_delete'
     MULTI_USER = 'messages_add_multiple_users'
+    ADD_TO_OTHERS = 'messages_add_to_others'

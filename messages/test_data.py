@@ -9,11 +9,11 @@ class MessagesPopulator(TestDataPopulator):
     def populate(cls):
         db.session.execute(
             """
-            INSERT INTO pm_conversations (topic) VALUES
-            ('New Private Message!'),
-            ('New Group Message!'),
-            ('New Group Message!'),
-            ('detingstings')
+            INSERT INTO pm_conversations (topic, sender_id) VALUES
+            ('New Private Message!', 1),
+            ('New Group Message!', 3),
+            ('New Group Message!', 1),
+            ('detingstings', 2)
             """)
         db.session.execute(
             """

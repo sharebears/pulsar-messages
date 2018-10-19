@@ -22,6 +22,7 @@ class PMConversation(db.Model, SinglePKMixin):
 
     id = db.Column(db.Integer, primary_key=True)
     topic = db.Column(db.String(128), nullable=False)
+    sender_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     locked = db.Column(db.Boolean, nullable=False, server_default='f')
 
     @classmethod
@@ -66,6 +67,7 @@ class PMConversation(db.Model, SinglePKMixin):
 
         pm_conversation = super()._new(
             topic=topic,
+            sender_id=sender_id,
             locked=locked)
 
         for user_id in (sender_id, *recipient_ids):
@@ -78,6 +80,12 @@ class PMConversation(db.Model, SinglePKMixin):
             user_id=sender_id,
             contents=initial_message)
         return pm_conversation
+
+    @classmethod
+    def clear_cache_keys(cls, user_id: int):
+        cache.delete_many(*(
+            cls.__cache_key_of_user__.format(user_id=user_id, filter=f)
+            for f in ['inbox', 'sentbox', 'deleted']))
 
     @property
     def messages(self):
