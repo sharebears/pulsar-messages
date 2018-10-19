@@ -8,6 +8,7 @@ from sqlalchemy.ext.hybrid import hybrid_property
 from core import _403Exception, cache, db
 from core.mixins import MultiPKMixin, SinglePKMixin
 from core.users.models import User
+from core.utils import cached_property
 from messages.exceptions import PMStateNotFound
 from messages.permissions import PMPermissions
 from messages.serializers import PMConversationSerializer, PMMessageSerializer
@@ -17,6 +18,8 @@ class PMConversation(db.Model, SinglePKMixin):
     __tablename__ = 'pm_conversations'
     __cache_key__ = 'pm_conversations_{id}'
     __cache_key_of_user__ = 'pm_conversations_users_{user_id}_{filter}'
+    __cache_key_msg_count__ = 'pm_conversations_{id}_messages_count'
+    __cache_key_conv_count__ = 'pm_conversations_{id}_conversations_count_{filter}'
     __serializer__ = PMConversationSerializer
 
     id = db.Column(db.Integer, primary_key=True)
@@ -30,6 +33,28 @@ class PMConversation(db.Model, SinglePKMixin):
                   page: int = 1,
                   limit: int = 50,
                   filter: str = 'inbox') -> List['PMConversation']:
+        conversations = cls.get_many(
+            key=cls.__cache_key_of_user__.format(user_id=user_id, filter=filter),
+            filter=cls.id.in_(db.session.query(
+                PMConversationState.conv_id
+                ).filter(cls.get_pm_state_filters(user_id, filter))),
+            page=page,
+            limit=limit)
+        for conv in conversations:
+            conv.set_state(user_id)
+        return conversations
+
+    @classmethod
+    def count_from_user(cls,
+                        user_id: int,
+                        filter: str = 'inbox') -> int:
+        return PMConversationState.count(
+            key=cls.__cache_key_conv_count__.format(id=user_id, filter=filter),
+            attribute=PMConversationState.conv_id,
+            filter=cls.get_pm_state_filters(user_id, filter))
+
+    @staticmethod
+    def get_pm_state_filters(user_id, filter):
         if filter == 'deleted' and not flask.g.user.has_permission(PMPermissions.VIEW_DELETED):
             raise _403Exception
         filters = [PMConversationState.user_id == user_id,
@@ -38,16 +63,7 @@ class PMConversation(db.Model, SinglePKMixin):
             filters.append(PMConversationState.last_response_time.isnot(None))
         elif filter == 'sentbox':
             filters.append(PMConversationState.in_sentbox.is_(True))
-
-        conversations = cls.get_many(
-            key=cls.__cache_key_of_user__.format(user_id=user_id, filter=filter),
-            filter=cls.id.in_(db.session.query(
-                PMConversationState.conv_id).filter(and_(*filters))),
-            page=page,
-            limit=limit)
-        for conv in conversations:
-            conv.set_state(user_id)
-        return conversations
+        return and_(*filters)
 
     @classmethod
     def new(cls,
@@ -69,7 +85,12 @@ class PMConversation(db.Model, SinglePKMixin):
             sender_id=sender_id,
             locked=locked)
 
-        for user_id in (sender_id, *recipient_ids):
+        PMConversationState.new(
+            conv_id=pm_conversation.id,
+            user_id=sender_id,
+            original_member=True,
+            read=True)
+        for user_id in recipient_ids:
             PMConversationState.new(
                 conv_id=pm_conversation.id,
                 user_id=user_id,
@@ -93,9 +114,16 @@ class PMConversation(db.Model, SinglePKMixin):
             self._messages = PMMessage.from_conversation(self.id)
         return self._messages
 
-    @property
+    @cached_property
     def members(self):
         return PMConversationState.get_users_in_conversation(self.id)
+
+    @cached_property
+    def messages_count(self):
+        return PMMessage.count(
+            key=self.__cache_key_msg_count__.format(id=self.id),
+            attribute=PMMessage.id,
+            filter=PMMessage.conv_id == self.id)
 
     def set_state(self, user_id):
         """
@@ -152,14 +180,15 @@ class PMConversationState(db.Model, MultiPKMixin):
         return cls.get_col_from_many(
             column=cls.user_id,
             key=cls.__cache_key_members__.format(conv_id=conv_id),
-            filter=cls.conv_id == conv_id,
+            filter=and_(cls.conv_id == conv_id, cls.deleted == 'f'),
             order=cls.time_added.asc())
 
     @classmethod
     def new(cls,
             conv_id: int,
             user_id: int,
-            original_member: bool = False) -> Optional['PMConversationState']:
+            original_member: bool = False,
+            read: bool = False) -> Optional['PMConversationState']:
         """
         Create a private message object, set states for the sender and receiver,
         and create the initial message.
@@ -170,7 +199,8 @@ class PMConversationState(db.Model, MultiPKMixin):
         return super()._new(
             conv_id=conv_id,
             user_id=user_id,
-            original_member=original_member)
+            original_member=original_member,
+            read=read)
 
     @classmethod
     def update_last_response_time(cls,

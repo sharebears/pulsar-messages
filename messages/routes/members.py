@@ -30,6 +30,7 @@ def add_members(conv_id: int, user_ids: List[int]):
         PMConversationState.new(
             conv_id=conv_id,
             user_id=uid)
+    conv.del_property_cache('members')
     return flask.jsonify(conv.members)
 
 
@@ -55,4 +56,5 @@ def delete_members(conv_id: int, user_ids: List[int]):
             f'{", ".join(og_members)}.')
     db.session.delete(states)
     db.session.commit()
+    conv.del_property_cache('members')
     return flask.jsonify(conv.members)
