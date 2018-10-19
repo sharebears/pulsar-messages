@@ -4,9 +4,9 @@ import pytest
 import pytz
 
 from conftest import add_permissions, check_dictionary
-from core import NewJSONEncoder, _403Exception
+from core import NewJSONEncoder, _403Exception, cache
 from messages.exceptions import PMStateNotFound
-from messages.models import PMConversation, PMMessage
+from messages.models import PMConversation, PMMessage, PMConversationState
 from messages.permissions import PMPermissions
 
 
@@ -42,9 +42,12 @@ def test_create_new_conversation_and_messages_from_conversation(client):
 def test_make_message(client):
     pm = PMConversation.from_pk(1)
     pm.set_state(1)
+    pm_state = PMConversationState.from_attrs(conv_id=1, user_id=1)
     assert (datetime.utcnow().replace(tzinfo=pytz.utc) - pm.last_response_time
             ).total_seconds() > 60 * 60
+    assert cache.has(pm_state.cache_key)
     PMMessage.new(conv_id=1, user_id=2, contents='hi')
+    assert not cache.has(pm_state.cache_key)
     pm.set_state(1)
     assert (datetime.utcnow().replace(tzinfo=pytz.utc) - pm.last_response_time
             ).total_seconds() < 15
@@ -117,6 +120,16 @@ def test_set_messages_pagination(client):
     pm.set_messages(page=2, limit=1)
     assert len(pm.messages) == 1
     assert pm.messages[0].id == 4
+
+
+def test_clear_cache_keys(client):
+    for uid in [1, 2]:
+        for f in ['inbox', 'sentbox', 'deleted']:
+            cache.set(PMConversation.__cache_key_of_user__.format(user_id=uid, filter=f), 1)
+    PMConversation.clear_cache_keys(1)
+    for f in ['inbox', 'sentbox', 'deleted']:
+        assert not cache.has(PMConversation.__cache_key_of_user__.format(user_id=1, filter=f))
+        assert cache.has(PMConversation.__cache_key_of_user__.format(user_id=2, filter=f))
 
 
 def test_serialize_basic_perms(authed_client):
