@@ -42,10 +42,12 @@ def test_view_conversations_others_perm_fail(app, authed_client):
 
 
 def test_view_conversation(app, authed_client):
+    assert PMConversationState.from_attrs(conv_id=1, user_id=1).read is False
     response = authed_client.get('/messages/conversations/1')
     json = response.get_json()['response']
     assert len(json['messages']) == 2
     assert json['read'] is True
+    assert PMConversationState.from_attrs(conv_id=1, user_id=1).read is True
 
 
 def test_view_conversation_pagination(app, authed_client):

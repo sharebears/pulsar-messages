@@ -20,7 +20,7 @@ class MessagesPopulator(TestDataPopulator):
             INSERT INTO pm_conversations_state (
                 conv_id, user_id, original_member, read, sticky, deleted, last_response_time
             ) VALUES
-            (1, 1, 't', 't', 'f', 'f', NOW() - INTERVAL '2 DAYS'),
+            (1, 1, 't', 'f', 'f', 'f', NOW() - INTERVAL '2 DAYS'),
             (1, 2, 't', 'f', 'f', 'f', NOW() - INTERVAL '3 DAYS'),
             (1, 3, 'f', 'f', 'f', 'f', NOW() - INTERVAL '2 DAYS'),
             (2, 1, 't', 't', 't', 'f', NOW() - INTERVAL '1 DAY'),

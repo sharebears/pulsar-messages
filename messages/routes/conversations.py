@@ -51,6 +51,7 @@ def view_conversation(id: int,
     conv = PMConversation.from_pk(id, _404=True, asrt=PMPermissions.VIEW_OTHERS)
     conv.set_state(flask.g.user.id)
     conv.set_messages(page, limit)
+    conv.mark_read()
     return flask.jsonify(conv)
 
 

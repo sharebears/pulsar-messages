@@ -137,6 +137,13 @@ class PMConversation(db.Model, SinglePKMixin):
         self.sticky = self._conv_state.sticky
         self.last_response_time = self._conv_state.last_response_time
 
+    def mark_read(self):
+        if not self._conv_state:
+            raise PMStateNotFound
+        self._conv_state.read = True
+        self.read = True
+        db.session.commit()
+
     def set_messages(self,
                      page: int = 1,
                      limit: int = 50) -> None:
