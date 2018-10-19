@@ -102,12 +102,13 @@ def create_message(conv_id: int, message: str):
 
 
 ADD_MEMBER_SCHEMA = Schema({
-    # uhh
+    'conv_id': int,
+    'user_id': int,
     })
 
 
 @bp.route('/messages/conversations/members', methods=['POST'])
 @require_permission(PMPermissions.MULTI_USER)
 @validate_data(ADD_MEMBER_SCHEMA)
-def add_member(conv_id: int, message: str):
+def add_member(conv_id: int, user_id: int):
     pass
