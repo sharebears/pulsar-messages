@@ -1,13 +1,15 @@
-import flask
 from typing import List
-from . import bp
-from core.users.models import User
-from voluptuous import All, In, Range, Schema, Length, Unordered
-from core.utils import access_other_user, require_permission, validate_data
-from messages.permissions import PMPermissions
-from core import _403Exception, db
-from messages.models import PMConversation, PMConversationState
 
+import flask
+from voluptuous import All, In, Length, Range, Schema, Unordered
+
+from core import _403Exception, db
+from core.users.models import User
+from core.utils import access_other_user, require_permission, validate_data
+from messages.models import PMConversation, PMConversationState
+from messages.permissions import PMPermissions
+
+from . import bp
 
 VIEW_CONVERSATIONS_SCHEMA = Schema({
     'page': All(int, Range(min=0, max=2147483648)),

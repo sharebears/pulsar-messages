@@ -1,10 +1,12 @@
+from datetime import datetime
+
 import pytest
 import pytz
-from datetime import datetime
-from conftest import check_dictionary, add_permissions
+
+from conftest import add_permissions, check_dictionary
 from core import NewJSONEncoder, _403Exception
-from messages.models import PMConversation, PMMessage
 from messages.exceptions import PMStateNotFound
+from messages.models import PMConversation, PMMessage
 from messages.permissions import PMPermissions
 
 

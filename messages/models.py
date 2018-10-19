@@ -1,12 +1,11 @@
-from typing import List, Optional
 from datetime import datetime
+from typing import List, Optional
 
 import flask
 from sqlalchemy import and_, exists, func, select
 from sqlalchemy.ext.hybrid import hybrid_property
 
-
-from core import db, _403Exception, cache
+from core import _403Exception, cache, db
 from core.mixins import MultiPKMixin, SinglePKMixin
 from core.users.models import User
 from messages.exceptions import PMStateNotFound

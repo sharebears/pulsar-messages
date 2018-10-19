@@ -1,13 +1,15 @@
-import flask
 from typing import List
-from . import bp
-from core.users.models import User
-from voluptuous import Schema, Unordered
-from core.utils import require_permission, validate_data
-from messages.permissions import PMPermissions
-from core import db, APIException
-from messages.models import PMConversation, PMConversationState
 
+import flask
+from voluptuous import Schema, Unordered
+
+from core import APIException, db
+from core.users.models import User
+from core.utils import require_permission, validate_data
+from messages.models import PMConversation, PMConversationState
+from messages.permissions import PMPermissions
+
+from . import bp
 
 ALTER_MEMBERS_SCHEMA = Schema({
     'conv_id': int,

@@ -1,10 +1,11 @@
 import flask
-from . import bp
 from voluptuous import Schema
-from core.utils import require_permission, validate_data
-from messages.permissions import PMPermissions
-from messages.models import PMMessage, PMConversation
 
+from core.utils import require_permission, validate_data
+from messages.models import PMConversation, PMMessage
+from messages.permissions import PMPermissions
+
+from . import bp
 
 CREATE_REPLY_SCHEMA = Schema({
     'conv_id': int,
