@@ -18,18 +18,18 @@ class MessagesPopulator(TestDataPopulator):
         db.session.execute(
             """
             INSERT INTO pm_conversations_state (
-                conv_id, user_id, read, sticky, deleted, last_response_time
+                conv_id, user_id, original_member, read, sticky, deleted, last_response_time
             ) VALUES
-            (1, 1, 'f', 'f', 'f', NOW() - INTERVAL '2 DAYS'),
-            (1, 2, 'f', 'f', 'f', NOW() - INTERVAL '3 DAYS'),
-            (2, 1, 't', 't', 'f', NOW() - INTERVAL '1 DAY'),
-            (2, 2, 'f', 'f', 'f', NOW() - INTERVAL '1 DAY'),
-            (2, 3, 'f', 'f', 'f', NULL),
-            (3, 1, 'f', 'f', 'f', NULL),
-            (3, 2, 'f', 'f', 'f', NOW() - INTERVAL '12 HOURS'),
-            (3, 3, 'f', 'f', 't', NOW() - INTERVAL '12 HOURS'),
-            (4, 2, 'f', 'f', 'f', NULL),
-            (4, 3, 'f', 'f', 'f', NOW())
+            (1, 1, 't', 'f', 'f', 'f', NOW() - INTERVAL '2 DAYS'),
+            (1, 2, 't', 'f', 'f', 'f', NOW() - INTERVAL '3 DAYS'),
+            (2, 1, 't', 't', 't', 'f', NOW() - INTERVAL '1 DAY'),
+            (2, 2, 't', 'f', 'f', 'f', NOW() - INTERVAL '1 DAY'),
+            (2, 3, 't', 'f', 'f', 'f', NULL),
+            (3, 1, 't', 'f', 'f', 'f', NULL),
+            (3, 2, 't', 'f', 'f', 'f', NOW() - INTERVAL '12 HOURS'),
+            (3, 3, 't', 'f', 'f', 't', NOW() - INTERVAL '12 HOURS'),
+            (4, 2, 't', 'f', 'f', 'f', NULL),
+            (4, 3, 't', 'f', 'f', 'f', NOW())
             """)
         db.session.execute(
             """

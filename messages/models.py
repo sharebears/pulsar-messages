@@ -74,7 +74,7 @@ class PMConversation(db.Model, SinglePKMixin):
             PMConversationState.new(
                 conv_id=pm_conversation.id,
                 user_id=user_id,
-                original_recipient=True)
+                original_member=True)
 
         PMMessage.new(
             conv_id=pm_conversation.id,
@@ -103,9 +103,7 @@ class PMConversation(db.Model, SinglePKMixin):
         Assign the state of the PM for a user to attributes of this object. This makes
         the object suitable for serialization.
         """
-        self._conv_state = PMConversationState.from_attrs(
-            conv_id=self.id,
-            user_id=user_id)
+        self._conv_state = PMConversationState.from_attrs(conv_id=self.id, user_id=user_id)
         if not self._conv_state:
             raise PMStateNotFound
         self.read = self._conv_state.read
@@ -131,7 +129,7 @@ class PMConversationState(db.Model, MultiPKMixin):
 
     conv_id = db.Column(db.Integer, db.ForeignKey('pm_conversations.id'), primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), primary_key=True)
-    original_recipient = db.Column(db.Boolean, nullable=False)
+    original_member = db.Column(db.Boolean, nullable=False)
     read = db.Column(db.Boolean, nullable=False, server_default='f')
     sticky = db.Column(db.Boolean, nullable=False, server_default='f', index=True)
     deleted = db.Column(db.Boolean, nullable=False, server_default='f', index=True)
@@ -162,17 +160,18 @@ class PMConversationState(db.Model, MultiPKMixin):
     def new(cls,
             conv_id: int,
             user_id: int,
-            original_recipient: bool = False) -> Optional['PMConversationState']:
+            original_member: bool = False) -> Optional['PMConversationState']:
         """
         Create a private message object, set states for the sender and receiver,
         and create the initial message.
         """
         PMConversation.is_valid(conv_id, error=True)
         User.is_valid(user_id, error=True)
+        cache.delete(cls.__cache_key_members__.format(conv_id=conv_id))
         return super()._new(
             conv_id=conv_id,
             user_id=user_id,
-            original_recipient=original_recipient)
+            original_member=original_member)
 
     @classmethod
     def update_last_response_time(cls,

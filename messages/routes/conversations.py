@@ -6,9 +6,7 @@ from voluptuous import All, In, Range, Schema, Length, Unordered
 from core.utils import access_other_user, require_permission, validate_data
 from messages.permissions import PMPermissions
 from core import _403Exception, db
-from messages.models import PMConversation, PMConversationState, PMMessage
-
-app = flask.current_app
+from messages.models import PMConversation, PMConversationState
 
 
 VIEW_CONVERSATIONS_SCHEMA = Schema({
@@ -82,33 +80,3 @@ def delete_conversation(user: User, id: int):
     db.session.commit()
     PMConversation.clear_cache_keys(user.id)
     return flask.jsonify(f'Successfully deleted conversation {id}.')
-
-
-CREATE_MESSAGE_SCHEMA = Schema({
-    'conv_id': int,
-    'message': str,
-    })
-
-
-@bp.route('/messages/conversations/posts', methods=['POST'])
-@require_permission(PMPermissions.SEND)
-@validate_data(CREATE_MESSAGE_SCHEMA)
-def create_message(conv_id: int, message: str):
-    conv = PMConversation.from_pk(conv_id, _404=True)
-    return flask.jsonify(PMMessage.new(
-        conv_id=conv.id,
-        user_id=flask.g.user.id,
-        contents=message))
-
-
-ADD_MEMBER_SCHEMA = Schema({
-    'conv_id': int,
-    'user_id': int,
-    })
-
-
-@bp.route('/messages/conversations/members', methods=['POST'])
-@require_permission(PMPermissions.MULTI_USER)
-@validate_data(ADD_MEMBER_SCHEMA)
-def add_member(conv_id: int, user_id: int):
-    pass
