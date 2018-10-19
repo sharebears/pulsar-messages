@@ -1,4 +1,5 @@
 from messages.permissions import PMPermissions
+import pytest
 import json
 from messages.models import PMConversation, PMConversationState
 from core import db
@@ -136,3 +137,16 @@ def test_delete_conversation_permission_override(app, authed_client):
         '/messages/conversations/4', query_string={'user_id': 2}).get_json()['response']
     assert response == 'Successfully deleted conversation 4.'
     assert PMConversationState.from_attrs(conv_id=4, user_id=2).deleted is True
+
+
+@pytest.mark.parametrize(
+    'endpoint, method', [
+        ('/messages/conversations', 'GET'),
+        ('/messages/conversations/1', 'GET'),
+        ('/messages/conversations', 'POST'),
+        ('/messages/conversations/1', 'DELETE'),
+    ])
+def test_route_permissions(app, authed_client, endpoint, method):
+    db.engine.execute('DELETE FROM users_permissions')
+    response = authed_client.open(endpoint, method=method).get_json()['response']
+    assert response == 'You do not have permission to access this resource.'

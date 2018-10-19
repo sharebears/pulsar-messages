@@ -13,7 +13,7 @@ CREATE_REPLY_SCHEMA = Schema({
     })
 
 
-@bp.route('/messages/conversations/replies', methods=['POST'])
+@bp.route('/messages/replies', methods=['POST'])
 @require_permission(PMPermissions.SEND)
 @validate_data(CREATE_REPLY_SCHEMA)
 def create_reply(conv_id: int, message: str):

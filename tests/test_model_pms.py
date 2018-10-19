@@ -14,8 +14,8 @@ def test_get_conversation(client):
     pm = PMConversation.from_pk(1)
     assert pm.id == 1
     assert pm.topic == 'New Private Message!'
-    assert len(pm.members) == 2
-    assert all(m.id in {1, 2} for m in pm.members)
+    assert len(pm.members) == 3
+    assert all(m.id in {1, 2, 3} for m in pm.members)
 
 
 def test_get_conversation_multiple_members(client):
@@ -96,7 +96,7 @@ def test_conversation_set_state(client):
 def test_conversation_set_state_nonexistent(client):
     pm = PMConversation.from_pk(1)
     with pytest.raises(PMStateNotFound):
-        pm.set_state(3)
+        pm.set_state(5)
 
 
 def test_belongs_to_user(authed_client):
