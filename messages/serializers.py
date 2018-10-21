@@ -19,6 +19,6 @@ class PMMessageSerializer(Serializer):
     # again.
     id = Attribute()
     conv_id = Attribute()
-    user_id = Attribute()
+    user = Attribute(nested=('id', 'username'))
     time = Attribute()
     contents = Attribute()

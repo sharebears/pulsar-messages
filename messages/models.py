@@ -110,7 +110,7 @@ class PMConversation(db.Model, SinglePKMixin):
 
     @property
     def messages(self):
-        if not hasattr(self, '_messages'):
+        if not getattr(self, '_messages', False):
             self._messages = PMMessage.from_conversation(self.id)
         return self._messages
 
@@ -267,3 +267,7 @@ class PMMessage(db.Model, SinglePKMixin):
             conv_id=conv_id,
             user_id=user_id,
             contents=contents)
+
+    @cached_property
+    def user(self):
+        return User.from_pk(self.user_id)
