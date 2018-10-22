@@ -10,17 +10,17 @@ from core.mixins import MultiPKMixin, SinglePKMixin
 from core.users.models import User
 from core.utils import cached_property
 from messages.exceptions import PMStateNotFound
-from messages.permissions import PMPermissions
-from messages.serializers import PMConversationSerializer, PMMessageSerializer
+from messages.permissions import MessagePermissions
+from messages.serializers import PrivateConversationSerializer, PrivateMessageSerializer
 
 
-class PMConversation(db.Model, SinglePKMixin):
+class PrivateConversation(db.Model, SinglePKMixin):
     __tablename__ = 'pm_conversations'
     __cache_key__ = 'pm_conversations_{id}'
     __cache_key_of_user__ = 'pm_conversations_users_{user_id}_{filter}'
     __cache_key_msg_count__ = 'pm_conversations_{id}_messages_count'
     __cache_key_conv_count__ = 'pm_conversations_{id}_conversations_count_{filter}'
-    __serializer__ = PMConversationSerializer
+    __serializer__ = PrivateConversationSerializer
 
     id = db.Column(db.Integer, primary_key=True)
     topic = db.Column(db.String(128), nullable=False)
@@ -32,11 +32,11 @@ class PMConversation(db.Model, SinglePKMixin):
                   user_id: int,
                   page: int = 1,
                   limit: int = 50,
-                  filter: str = 'inbox') -> List['PMConversation']:
+                  filter: str = 'inbox') -> List['PrivateConversation']:
         conversations = cls.get_many(
             key=cls.__cache_key_of_user__.format(user_id=user_id, filter=filter),
             filter=cls.id.in_(db.session.query(
-                PMConversationState.conv_id
+                PrivateConversationState.conv_id
                 ).filter(cls.get_pm_state_filters(user_id, filter))),
             page=page,
             limit=limit)
@@ -48,21 +48,22 @@ class PMConversation(db.Model, SinglePKMixin):
     def count_from_user(cls,
                         user_id: int,
                         filter: str = 'inbox') -> int:
-        return PMConversationState.count(
+        return PrivateConversationState.count(
             key=cls.__cache_key_conv_count__.format(id=user_id, filter=filter),
-            attribute=PMConversationState.conv_id,
+            attribute=PrivateConversationState.conv_id,
             filter=cls.get_pm_state_filters(user_id, filter))
 
     @staticmethod
     def get_pm_state_filters(user_id, filter):
-        if filter == 'deleted' and not flask.g.user.has_permission(PMPermissions.VIEW_DELETED):
+        if (filter == 'deleted'
+                and not flask.g.user.has_permission(MessagePermissions.VIEW_DELETED)):
             raise _403Exception
-        filters = [PMConversationState.user_id == user_id,
-                   PMConversationState.deleted == ('f' if filter != 'deleted' else 't')]
+        filters = [PrivateConversationState.user_id == user_id,
+                   PrivateConversationState.deleted == ('f' if filter != 'deleted' else 't')]
         if filter == 'inbox':
-            filters.append(PMConversationState.last_response_time.isnot(None))
+            filters.append(PrivateConversationState.last_response_time.isnot(None))
         elif filter == 'sentbox':
-            filters.append(PMConversationState.in_sentbox.is_(True))
+            filters.append(PrivateConversationState.in_sentbox.is_(True))
         return and_(*filters)
 
     @classmethod
@@ -71,7 +72,7 @@ class PMConversation(db.Model, SinglePKMixin):
             sender_id: int,
             recipient_ids: List[int],
             initial_message: str,
-            locked: bool = False) -> Optional['PMConversation']:
+            locked: bool = False) -> Optional['PrivateConversation']:
         """
         Create a private message object, set states for the sender and receiver,
         and create the initial message.
@@ -85,18 +86,18 @@ class PMConversation(db.Model, SinglePKMixin):
             sender_id=sender_id,
             locked=locked)
 
-        PMConversationState.new(
+        PrivateConversationState.new(
             conv_id=pm_conversation.id,
             user_id=sender_id,
             original_member=True,
             read=True)
         for user_id in recipient_ids:
-            PMConversationState.new(
+            PrivateConversationState.new(
                 conv_id=pm_conversation.id,
                 user_id=user_id,
                 original_member=True)
 
-        PMMessage.new(
+        PrivateMessage.new(
             conv_id=pm_conversation.id,
             user_id=sender_id,
             contents=initial_message)
@@ -111,26 +112,26 @@ class PMConversation(db.Model, SinglePKMixin):
     @property
     def messages(self):
         if not getattr(self, '_messages', False):
-            self._messages = PMMessage.from_conversation(self.id)
+            self._messages = PrivateMessage.from_conversation(self.id)
         return self._messages
 
     @cached_property
     def members(self):
-        return PMConversationState.get_users_in_conversation(self.id)
+        return PrivateConversationState.get_users_in_conversation(self.id)
 
     @cached_property
     def messages_count(self):
-        return PMMessage.count(
+        return PrivateMessage.count(
             key=self.__cache_key_msg_count__.format(id=self.id),
-            attribute=PMMessage.id,
-            filter=PMMessage.conv_id == self.id)
+            attribute=PrivateMessage.id,
+            filter=PrivateMessage.conv_id == self.id)
 
     def set_state(self, user_id):
         """
         Assign the state of the PM for a user to attributes of this object. This makes
         the object suitable for serialization.
         """
-        self._conv_state = PMConversationState.from_attrs(conv_id=self.id, user_id=user_id)
+        self._conv_state = PrivateConversationState.from_attrs(conv_id=self.id, user_id=user_id)
         if not self._conv_state:
             raise PMStateNotFound
         self.read = self._conv_state.read
@@ -147,7 +148,7 @@ class PMConversation(db.Model, SinglePKMixin):
     def set_messages(self,
                      page: int = 1,
                      limit: int = 50) -> None:
-        self._messages = PMMessage.from_conversation(self.id, page, limit)
+        self._messages = PrivateMessage.from_conversation(self.id, page, limit)
 
     def belongs_to_user(self) -> bool:
         """
@@ -156,7 +157,7 @@ class PMConversation(db.Model, SinglePKMixin):
         return flask.g.user is not None and flask.g.user.id in {u.id for u in self.members}
 
 
-class PMConversationState(db.Model, MultiPKMixin):
+class PrivateConversationState(db.Model, MultiPKMixin):
     __tablename__ = 'pm_conversations_state'
     __cache_key__ = 'pm_convesations_state_{conv_id}_{user_id}'
     __cache_key_members__ = 'pm_conversations_state_{conv_id}_members'
@@ -173,8 +174,8 @@ class PMConversationState(db.Model, MultiPKMixin):
     @hybrid_property
     def in_sentbox(cls):
         return select([exists().where(and_(
-            PMMessage.conv_id == cls.conv_id,
-            PMMessage.user_id == cls.user_id,
+            PrivateMessage.conv_id == cls.conv_id,
+            PrivateMessage.user_id == cls.user_id,
             cls.deleted == 'f',
             ))]).as_scalar()
 
@@ -195,12 +196,12 @@ class PMConversationState(db.Model, MultiPKMixin):
             conv_id: int,
             user_id: int,
             original_member: bool = False,
-            read: bool = False) -> Optional['PMConversationState']:
+            read: bool = False) -> Optional['PrivateConversationState']:
         """
         Create a private message object, set states for the sender and receiver,
         and create the initial message.
         """
-        PMConversation.is_valid(conv_id, error=True)
+        PrivateConversation.is_valid(conv_id, error=True)
         User.is_valid(user_id, error=True)
         cache.delete(cls.__cache_key_members__.format(conv_id=conv_id))
         return super()._new(
@@ -223,11 +224,11 @@ class PMConversationState(db.Model, MultiPKMixin):
             }) for uid in cls.get_user_ids_in_conversation(conv_id) if uid != sender_id))
 
 
-class PMMessage(db.Model, SinglePKMixin):
+class PrivateMessage(db.Model, SinglePKMixin):
     __tablename__ = 'pm_messages'
     __cache_key__ = 'pm_messages_{id}'
     __cache_key_of_conversation__ = 'pm_messages_conv_{conv_id}'
-    __serializer__ = PMMessageSerializer
+    __serializer__ = PrivateMessageSerializer
 
     id = db.Column(db.Integer, primary_key=True)
     conv_id = db.Column(
@@ -241,7 +242,7 @@ class PMMessage(db.Model, SinglePKMixin):
     def from_conversation(cls,
                           conv_id: int,
                           page: int = 1,
-                          limit: int = 50) -> List['PMMessage']:
+                          limit: int = 50) -> List['PrivateMessage']:
         """
         Get a list of private messages in a conversation.
         """
@@ -256,13 +257,13 @@ class PMMessage(db.Model, SinglePKMixin):
     def new(cls,
             conv_id: int,
             user_id: int,
-            contents: str) -> Optional['PMMessage']:
+            contents: str) -> Optional['PrivateMessage']:
         """
         Create a message in a PM conversation.
         """
-        PMConversation.is_valid(conv_id, error=True)
+        PrivateConversation.is_valid(conv_id, error=True)
         User.is_valid(user_id, error=True)
-        PMConversationState.update_last_response_time(conv_id, user_id)
+        PrivateConversationState.update_last_response_time(conv_id, user_id)
         return super()._new(
             conv_id=conv_id,
             user_id=user_id,

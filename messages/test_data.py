@@ -1,6 +1,6 @@
 from core import db
 from core.mixins import TestDataPopulator
-from messages.permissions import PMPermissions
+from messages.permissions import MessagePermissions
 
 
 class MessagesPopulator(TestDataPopulator):
@@ -43,10 +43,10 @@ class MessagesPopulator(TestDataPopulator):
             (4, 2, 'testing', NOW())
             """)
         cls.add_permissions(
-            PMPermissions.VIEW,
-            PMPermissions.CREATE,
-            PMPermissions.SEND,
-            PMPermissions.DELETE)
+            MessagePermissions.VIEW,
+            MessagePermissions.CREATE,
+            MessagePermissions.SEND,
+            MessagePermissions.DELETE)
         db.session.commit()
 
     @classmethod

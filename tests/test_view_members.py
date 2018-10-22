@@ -2,11 +2,11 @@ import json
 from core import db
 import pytest
 from conftest import add_permissions
-from messages.permissions import PMPermissions
+from messages.permissions import MessagePermissions
 
 
 def test_add_members_to_conversation(app, authed_client):
-    add_permissions(app, PMPermissions.MULTI_USER)
+    add_permissions(app, MessagePermissions.MULTI_USER)
     response = authed_client.post('/messages/1/members', data=json.dumps({
         'user_ids': [4, 5],
         })).get_json()['response']
@@ -15,7 +15,7 @@ def test_add_members_to_conversation(app, authed_client):
 
 
 def test_add_members_to_conversation_already_in(app, authed_client):
-    add_permissions(app, PMPermissions.MULTI_USER)
+    add_permissions(app, MessagePermissions.MULTI_USER)
     response = authed_client.post('/messages/1/members', data=json.dumps({
         'user_ids': [2, 4],
         })).get_json()['response']
@@ -23,7 +23,7 @@ def test_add_members_to_conversation_already_in(app, authed_client):
 
 
 def test_add_members_to_others_conversation(app, authed_client):
-    add_permissions(app, PMPermissions.MULTI_USER, PMPermissions.VIEW_OTHERS)
+    add_permissions(app, MessagePermissions.MULTI_USER, MessagePermissions.VIEW_OTHERS)
     response = authed_client.post('/messages/4/members', data=json.dumps({
         'user_ids': [1],
         })).get_json()['response']
@@ -32,15 +32,15 @@ def test_add_members_to_others_conversation(app, authed_client):
 
 
 def test_attempt_add_members_to_others_conversation(app, authed_client):
-    add_permissions(app, PMPermissions.MULTI_USER)
+    add_permissions(app, MessagePermissions.MULTI_USER)
     response = authed_client.post('/messages/4/members', data=json.dumps({
         'user_ids': [1],
         })).get_json()['response']
-    assert response == 'PMConversation 4 does not exist.'
+    assert response == 'PrivateConversation 4 does not exist.'
 
 
 def test_delete_members_from_conversation(app, authed_client):
-    add_permissions(app, PMPermissions.MULTI_USER)
+    add_permissions(app, MessagePermissions.MULTI_USER)
     response = authed_client.delete('/messages/1/members', data=json.dumps({
         'user_ids': [3],
         })).get_json()['response']
@@ -49,7 +49,7 @@ def test_delete_members_from_conversation(app, authed_client):
 
 
 def test_delete_original_members_from_conversation(app, authed_client):
-    add_permissions(app, PMPermissions.MULTI_USER)
+    add_permissions(app, MessagePermissions.MULTI_USER)
     response = authed_client.delete('/messages/3/members', data=json.dumps({
         'user_ids': [2],
         })).get_json()['response']
@@ -58,7 +58,7 @@ def test_delete_original_members_from_conversation(app, authed_client):
 
 
 def test_delete_nonexistent_members_from_conversation(app, authed_client):
-    add_permissions(app, PMPermissions.MULTI_USER)
+    add_permissions(app, MessagePermissions.MULTI_USER)
     response = authed_client.delete('/messages/3/members', data=json.dumps({
         'user_ids': [5],
         })).get_json()['response']

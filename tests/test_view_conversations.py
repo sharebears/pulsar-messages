@@ -1,7 +1,7 @@
-from messages.permissions import PMPermissions
+from messages.permissions import MessagePermissions
 import pytest
 import json
-from messages.models import PMConversation, PMConversationState
+from messages.models import PrivateConversation, PrivateConversationState
 from core import db
 from conftest import add_permissions
 
@@ -29,7 +29,7 @@ def test_view_sentbox(app, authed_client):
 
 
 def test_view_conversations_others(app, authed_client):
-    add_permissions(app, PMPermissions.VIEW_OTHERS)
+    add_permissions(app, MessagePermissions.VIEW_OTHERS)
     response = authed_client.get('/messages/conversations', query_string={'user_id': 2}).get_json()
     response = response['response']
     assert len(response['conversations']) == 3
@@ -42,12 +42,12 @@ def test_view_conversations_others_perm_fail(app, authed_client):
 
 
 def test_view_conversation(app, authed_client):
-    assert PMConversationState.from_attrs(conv_id=1, user_id=1).read is False
+    assert PrivateConversationState.from_attrs(conv_id=1, user_id=1).read is False
     response = authed_client.get('/messages/conversations/1')
     json = response.get_json()['response']
     assert len(json['messages']) == 2
     assert json['read'] is True
-    assert PMConversationState.from_attrs(conv_id=1, user_id=1).read is True
+    assert PrivateConversationState.from_attrs(conv_id=1, user_id=1).read is True
 
 
 def test_view_conversation_pagination(app, authed_client):
@@ -59,10 +59,10 @@ def test_view_conversation_pagination(app, authed_client):
 
 
 def test_view_conversation_deleted(app, authed_client):
-    PMConversationState.from_attrs(conv_id=1, user_id=1).deleted = True
+    PrivateConversationState.from_attrs(conv_id=1, user_id=1).deleted = True
     db.session.commit()
     response = authed_client.get('/messages/conversations/1').get_json()['response']
-    assert response == 'PMConversation 1 does not exist.'
+    assert response == 'PrivateConversation 1 does not exist.'
 
 
 def test_create_conversation(app, authed_client):
@@ -88,7 +88,7 @@ def test_create_conversation_bad_recipient_ids(app, authed_client):
 
 
 def test_create_conversation_multi_user(app, authed_client):
-    add_permissions(app, PMPermissions.MULTI_USER)
+    add_permissions(app, MessagePermissions.MULTI_USER)
     response = authed_client.post('/messages/conversations', data=json.dumps({
         'topic': 'New test topic',
         'recipient_ids': [2, 3],
@@ -110,19 +110,19 @@ def test_create_conversation_multi_user_no_perm(app, authed_client):
 
 
 def test_delete_conversation(app, authed_client):
-    add_permissions(app, PMPermissions.VIEW_DELETED)
+    add_permissions(app, MessagePermissions.VIEW_DELETED)
     response = authed_client.delete('/messages/conversations/1').get_json()['response']
     assert response == 'Successfully deleted conversation 1.'
 
-    convs = PMConversation.from_user(1, filter='deleted')
+    convs = PrivateConversation.from_user(1, filter='deleted')
     assert len(convs) == 1
     assert convs[0].id == 1
-    convs = PMConversation.from_user(1, filter='inbox')
+    convs = PrivateConversation.from_user(1, filter='inbox')
     assert len(convs) == 1
 
 
 def test_delete_already_deleted_conversation(app, authed_client):
-    PMConversationState.from_attrs(conv_id=1, user_id=1).deleted = True
+    PrivateConversationState.from_attrs(conv_id=1, user_id=1).deleted = True
     db.session.commit()
     response = authed_client.delete('/messages/conversations/1').get_json()['response']
     assert response == 'You cannot delete a conversation that you are not a member of.'
@@ -134,11 +134,11 @@ def test_delete_conversation_not_member_of(app, authed_client):
 
 
 def test_delete_conversation_permission_override(app, authed_client):
-    add_permissions(app, PMPermissions.VIEW_OTHERS)
+    add_permissions(app, MessagePermissions.VIEW_OTHERS)
     response = authed_client.delete(
         '/messages/conversations/4', query_string={'user_id': 2}).get_json()['response']
     assert response == 'Successfully deleted conversation 4.'
-    assert PMConversationState.from_attrs(conv_id=4, user_id=2).deleted is True
+    assert PrivateConversationState.from_attrs(conv_id=4, user_id=2).deleted is True
 
 
 @pytest.mark.parametrize(
