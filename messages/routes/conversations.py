@@ -80,17 +80,70 @@ def create_conversation(topic: str,
     return flask.jsonify(pm)
 
 
-@bp.route('/messages/conversations/<int:id>', methods=['DELETE'])
+MODIFY_CONVERSATIONS_SCHEMA = Schema({
+    'conversation_ids': [int],
+    'read': bool,
+    'deleted': bool,
+    })
+
+
+@bp.route('/messages/conversations', methods=['PUT'])
 @require_permission(MessagePermissions.MODIFY)
 @access_other_user(MessagePermissions.VIEW_OTHERS)
-def delete_conversation(user: User, id: int):
+@validate_data(MODIFY_CONVERSATIONS_SCHEMA)
+def modify_conversations(user: User,
+                         conversation_ids: List[int],
+                         read: bool = None,
+                         deleted: bool = None):
+    conversations = []
+    failed: List[str] = []
+    for conv_id in conversation_ids:
+        pm_state = PrivateConversationState.from_attrs(
+            conv_id=conv_id,
+            user_id=user.id,
+            deleted='f')
+        if not pm_state:
+            failed.append(str(conv_id))
+        else:
+            conversations.append(pm_state)
+    if failed:
+        raise _403Exception(
+            f'You cannot modify conversations that you are not a member of: {", ".join(failed)}.')
+    for conv in conversations:
+        if read:
+            conv.read = read
+        if deleted:
+            conv.deleted = deleted
+    db.session.commit()
+    PrivateConversation.clear_cache_keys(user.id)
+    return flask.jsonify(
+        f'Successfully modified conversations {", ".join(str(c.conv_id) for c in conversations)}.')
+
+
+MODIFY_CONVERSATION_SCHEMA = Schema({
+    'read': bool,
+    'deleted': bool,
+    })
+
+
+@bp.route('/messages/conversations/<int:id>', methods=['PUT'])
+@require_permission(MessagePermissions.MODIFY)
+@access_other_user(MessagePermissions.VIEW_OTHERS)
+@validate_data(MODIFY_CONVERSATION_SCHEMA)
+def modify_conversation(user: User,
+                        id: int,
+                        read: bool = None,
+                        deleted: bool = None):
     pm_state = PrivateConversationState.from_attrs(
         conv_id=id,
         user_id=user.id,
         deleted='f')
     if not pm_state:
-        raise _403Exception('You cannot delete a conversation that you are not a member of.')
-    pm_state.deleted = True
+        raise _403Exception('You cannot modify a conversation that you are not a member of.')
+    if read:
+        pm_state.read = read
+    if deleted:
+        pm_state.deleted = deleted
     db.session.commit()
     PrivateConversation.clear_cache_keys(user.id)
-    return flask.jsonify(f'Successfully deleted conversation {id}.')
+    return flask.jsonify(f'Successfully modified conversation {id}.')

@@ -112,8 +112,9 @@ def test_create_conversation_multi_user_no_perm(app, authed_client):
 
 def test_delete_conversation(app, authed_client):
     add_permissions(app, MessagePermissions.VIEW_DELETED)
-    response = authed_client.delete('/messages/conversations/1').get_json()['response']
-    assert response == 'Successfully deleted conversation 1.'
+    response = authed_client.put('/messages/conversations/1', data=json.dumps({
+        'deleted': True})).get_json()['response']
+    assert response == 'Successfully modified conversation 1.'
 
     convs = PrivateConversation.from_user(1, filter='deleted')
     assert len(convs) == 1
@@ -122,24 +123,64 @@ def test_delete_conversation(app, authed_client):
     assert len(convs) == 1
 
 
+def test_mark_conversation_as_read(app, authed_client):
+    add_permissions(app, MessagePermissions.VIEW_DELETED)
+    response = authed_client.put('/messages/conversations/1', data=json.dumps({
+        'read': True})).get_json()['response']
+    assert response == 'Successfully modified conversation 1.'
+
+    conv = PrivateConversationState.from_attrs(conv_id=1, user_id=1)
+    assert conv.read is True
+
+
 def test_delete_already_deleted_conversation(app, authed_client):
     PrivateConversationState.from_attrs(conv_id=1, user_id=1).deleted = True
     db.session.commit()
-    response = authed_client.delete('/messages/conversations/1').get_json()['response']
-    assert response == 'You cannot delete a conversation that you are not a member of.'
+    response = authed_client.put('/messages/conversations/1', data=json.dumps({
+        'deleted': True})).get_json()['response']
+    assert response == 'You cannot modify a conversation that you are not a member of.'
 
 
-def test_delete_conversation_not_member_of(app, authed_client):
-    response = authed_client.delete('/messages/conversations/4').get_json()['response']
-    assert response == 'You cannot delete a conversation that you are not a member of.'
+def test_modify_conversation_not_member_of(app, authed_client):
+    response = authed_client.put('/messages/conversations/4').get_json()['response']
+    assert response == 'You cannot modify a conversation that you are not a member of.'
 
 
 def test_delete_conversation_permission_override(app, authed_client):
     add_permissions(app, MessagePermissions.VIEW_OTHERS)
-    response = authed_client.delete(
-        '/messages/conversations/4', query_string={'user_id': 2}).get_json()['response']
-    assert response == 'Successfully deleted conversation 4.'
+    response = authed_client.put(
+        '/messages/conversations/4',
+        query_string={'user_id': 2},
+        data=json.dumps({'deleted': True})).get_json()['response']
+    assert response == 'Successfully modified conversation 4.'
     assert PrivateConversationState.from_attrs(conv_id=4, user_id=2).deleted is True
+
+
+def test_modify_conversation_in_bulk(app, authed_client):
+    response = authed_client.put(
+        '/messages/conversations',
+        data=json.dumps({'conversation_ids': [1, 3], 'read': True})).get_json()['response']
+    assert response == 'Successfully modified conversations 1, 3.'
+    assert PrivateConversationState.from_attrs(conv_id=1, user_id=1).read is True
+    assert PrivateConversationState.from_attrs(conv_id=3, user_id=1).read is True
+
+
+def test_modify_conversation_in_bulk_no_perms(app, authed_client):
+    response = authed_client.put(
+        '/messages/conversations',
+        data=json.dumps({'conversation_ids': [1, 2, 4], 'read': True})).get_json()['response']
+    assert response == 'You cannot modify conversations that you are not a member of: 4.'
+    assert PrivateConversationState.from_attrs(conv_id=1, user_id=1).read is False
+
+
+def test_delete_conversation_in_bulk(app, authed_client):
+    response = authed_client.put(
+        '/messages/conversations',
+        data=json.dumps({'conversation_ids': [1, 2], 'deleted': True})).get_json()['response']
+    assert response == 'Successfully modified conversations 1, 2.'
+    assert PrivateConversationState.from_attrs(conv_id=1, user_id=1).deleted is True
+    assert PrivateConversationState.from_attrs(conv_id=2, user_id=1).deleted is True
+    assert len(PrivateConversation.from_user(1)) == 0
 
 
 @pytest.mark.parametrize(
@@ -147,7 +188,8 @@ def test_delete_conversation_permission_override(app, authed_client):
         ('/messages/conversations', 'GET'),
         ('/messages/conversations/1', 'GET'),
         ('/messages/conversations', 'POST'),
-        ('/messages/conversations/1', 'DELETE'),
+        ('/messages/conversations', 'PUT'),
+        ('/messages/conversations/1', 'PUT'),
     ])
 def test_route_permissions(app, authed_client, endpoint, method):
     db.engine.execute('DELETE FROM users_permissions')
