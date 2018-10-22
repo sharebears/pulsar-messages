@@ -233,7 +233,7 @@ class PrivateMessage(db.Model, SinglePKMixin):
     id = db.Column(db.Integer, primary_key=True)
     conv_id = db.Column(
         db.Integer, db.ForeignKey('pm_conversations.id'), nullable=False, index=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     time = db.Column(
         db.DateTime(timezone=True), nullable=False, index=True, server_default=func.now())
     contents = db.Column(db.Text, nullable=False)
