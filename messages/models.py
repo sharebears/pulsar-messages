@@ -111,8 +111,8 @@ class PrivateConversation(db.Model, SinglePKMixin):
 
     @property
     def messages(self):
-        if not getattr(self, '_messages', False):
-            self._messages = PrivateMessage.from_conversation(self.id)
+        if not hasattr(self, '_messages'):
+            self.set_messages()
         return self._messages
 
     @cached_property
@@ -249,7 +249,7 @@ class PrivateMessage(db.Model, SinglePKMixin):
         return cls.get_many(
             key=cls.__cache_key_of_conversation__.format(conv_id=conv_id),
             filter=cls.conv_id == conv_id,
-            order=cls.time.asc(),
+            order=cls.id.asc(),
             page=page,
             limit=limit)
 

@@ -45,17 +45,18 @@ def test_view_conversation(app, authed_client):
     assert PrivateConversationState.from_attrs(conv_id=1, user_id=1).read is False
     response = authed_client.get('/messages/conversations/1')
     json = response.get_json()['response']
-    assert len(json['messages']) == 2
-    assert json['read'] is True
-    assert PrivateConversationState.from_attrs(conv_id=1, user_id=1).read is True
+    assert len(json['messages']) == 50
+    assert json['read'] is False
+    assert PrivateConversationState.from_attrs(conv_id=1, user_id=1).read is False
 
 
 def test_view_conversation_pagination(app, authed_client):
     response = authed_client.get('/messages/conversations/1', query_string={'page': 2})
     json = response.get_json()['response']
-    assert len(json['messages']) == 0
-    assert json['messages_count'] == 2
+    assert len(json['messages']) == 4
+    assert json['messages_count'] == 54
     assert json['read'] is True
+    assert PrivateConversationState.from_attrs(conv_id=1, user_id=1).read is True
 
 
 def test_view_conversation_deleted(app, authed_client):

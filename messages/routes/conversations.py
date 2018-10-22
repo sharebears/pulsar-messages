@@ -51,7 +51,8 @@ def view_conversation(id: int,
     conv = PrivateConversation.from_pk(id, _404=True, asrt=MessagePermissions.VIEW_OTHERS)
     conv.set_state(flask.g.user.id)
     conv.set_messages(page, limit)
-    conv.mark_read()
+    if page * limit > conv.messages_count:
+        conv.mark_read()
     return flask.jsonify(conv)
 
 
@@ -80,7 +81,7 @@ def create_conversation(topic: str,
 
 
 @bp.route('/messages/conversations/<int:id>', methods=['DELETE'])
-@require_permission(MessagePermissions.DELETE)
+@require_permission(MessagePermissions.MODIFY)
 @access_other_user(MessagePermissions.VIEW_OTHERS)
 def delete_conversation(user: User, id: int):
     pm_state = PrivateConversationState.from_attrs(

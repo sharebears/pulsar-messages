@@ -112,14 +112,13 @@ def test_set_messages_limit(client):
     pm = PrivateConversation.from_pk(2)
     pm.set_messages(page=1, limit=1)
     assert len(pm.messages) == 1
-    assert pm.messages[0].id == 3
+    assert pm.messages[0].id == 55
 
 
 def test_set_messages_pagination(client):
     pm = PrivateConversation.from_pk(2)
     pm.set_messages(page=2, limit=1)
     assert len(pm.messages) == 1
-    assert pm.messages[0].id == 4
 
 
 def test_clear_cache_keys(client):
