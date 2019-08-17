@@ -4,7 +4,6 @@ from messages.permissions import MessagePermissions
 
 
 class MessagesPopulator(TestDataPopulator):
-
     @classmethod
     def populate(cls):
         db.session.execute(
@@ -14,7 +13,8 @@ class MessagesPopulator(TestDataPopulator):
             ('New Group Message!', 3),
             ('New Group Message!', 1),
             ('detingstings', 2)
-            """)
+            """
+        )
         db.session.execute(
             """
             INSERT INTO pm_conversations_state (
@@ -31,7 +31,8 @@ class MessagesPopulator(TestDataPopulator):
             (3, 3, 'f', 'f', 'f', 't', NOW() - INTERVAL '12 HOURS'),
             (4, 2, 't', 'f', 'f', 'f', NULL),
             (4, 3, 't', 'f', 'f', 'f', NOW())
-            """)
+            """
+        )
         db.session.execute(
             """
             INSERT INTO pm_messages (conv_id, user_id, contents, time) VALUES
@@ -93,12 +94,14 @@ class MessagesPopulator(TestDataPopulator):
             (2, 3, 'a lot!', NOW() - INTERVAL '1 DAY'),
             (3, 1, 'i love love love you!', NOW() - INTERVAL '12 HOURS'),
             (4, 2, 'testing', NOW())
-            """)
+            """
+        )
         cls.add_permissions(
             MessagePermissions.VIEW,
             MessagePermissions.CREATE,
             MessagePermissions.SEND,
-            MessagePermissions.MODIFY)
+            MessagePermissions.MODIFY,
+        )
         db.session.commit()
 
     @classmethod
@@ -106,5 +109,7 @@ class MessagesPopulator(TestDataPopulator):
         db.engine.execute('DELETE FROM pm_messages')
         db.engine.execute('DELETE FROM pm_conversations_state')
         db.engine.execute('DELETE FROM pm_conversations')
-        db.engine.execute('ALTER SEQUENCE pm_conversations_id_seq RESTART WITH 1')
+        db.engine.execute(
+            'ALTER SEQUENCE pm_conversations_id_seq RESTART WITH 1'
+        )
         db.engine.execute('ALTER SEQUENCE pm_messages_id_seq RESTART WITH 1')

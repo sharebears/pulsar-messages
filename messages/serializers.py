@@ -8,7 +8,9 @@ class PrivateConversationSerializer(Serializer):
     last_response_time = Attribute(permission=MessagePermissions.VIEW_OTHERS)
     read = Attribute(permission=MessagePermissions.VIEW_OTHERS)
     sticky = Attribute(permission=MessagePermissions.VIEW_OTHERS)
-    messages = Attribute(nested=False, permission=MessagePermissions.VIEW_OTHERS)
+    messages = Attribute(
+        nested=False, permission=MessagePermissions.VIEW_OTHERS
+    )
     messages_count = Attribute(permission=MessagePermissions.VIEW_OTHERS)
     members = Attribute(permission=MessagePermissions.VIEW_OTHERS)
 

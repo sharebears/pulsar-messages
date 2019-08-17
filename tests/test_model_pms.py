@@ -6,7 +6,11 @@ import pytz
 from conftest import add_permissions, check_dictionary
 from core import NewJSONEncoder, _403Exception, cache
 from messages.exceptions import PMStateNotFound
-from messages.models import PrivateConversation, PrivateMessage, PrivateConversationState
+from messages.models import (
+    PrivateConversation,
+    PrivateConversationState,
+    PrivateMessage,
+)
 from messages.permissions import MessagePermissions
 
 
@@ -30,7 +34,8 @@ def test_create_new_conversation_and_messages_from_conversation(client):
         topic='test1',
         sender_id=3,
         recipient_ids=[2],
-        initial_message='testing')
+        initial_message='testing',
+    )
     assert pm.topic == 'test1'
     assert pm.id == 5
     pm_messages = PrivateMessage.from_conversation(5)
@@ -43,14 +48,16 @@ def test_make_message(client):
     pm = PrivateConversation.from_pk(1)
     pm.set_state(1)
     pm_state = PrivateConversationState.from_attrs(conv_id=1, user_id=1)
-    assert (datetime.utcnow().replace(tzinfo=pytz.utc) - pm.last_response_time
-            ).total_seconds() > 60 * 60
+    assert (
+        datetime.utcnow().replace(tzinfo=pytz.utc) - pm.last_response_time
+    ).total_seconds() > 60 * 60
     assert cache.has(pm_state.cache_key)
     PrivateMessage.new(conv_id=1, user_id=2, contents='hi')
     assert not cache.has(pm_state.cache_key)
     pm.set_state(1)
-    assert (datetime.utcnow().replace(tzinfo=pytz.utc) - pm.last_response_time
-            ).total_seconds() < 15
+    assert (
+        datetime.utcnow().replace(tzinfo=pytz.utc) - pm.last_response_time
+    ).total_seconds() < 15
 
 
 def test_conversation_from_user_inbox(client):
@@ -124,21 +131,31 @@ def test_set_messages_pagination(client):
 def test_clear_cache_keys(client):
     for uid in [1, 2]:
         for f in ['inbox', 'sentbox', 'deleted']:
-            cache.set(PrivateConversation.__cache_key_of_user__.format(user_id=uid, filter=f), 1)
+            cache.set(
+                PrivateConversation.__cache_key_of_user__.format(
+                    user_id=uid, filter=f
+                ),
+                1,
+            )
     PrivateConversation.clear_cache_keys(1)
     for f in ['inbox', 'sentbox', 'deleted']:
-        assert not cache.has(PrivateConversation.__cache_key_of_user__.format(user_id=1, filter=f))
-        assert cache.has(PrivateConversation.__cache_key_of_user__.format(user_id=2, filter=f))
+        assert not cache.has(
+            PrivateConversation.__cache_key_of_user__.format(
+                user_id=1, filter=f
+            )
+        )
+        assert cache.has(
+            PrivateConversation.__cache_key_of_user__.format(
+                user_id=2, filter=f
+            )
+        )
 
 
 def test_serialize_basic_perms(authed_client):
     pm = PrivateConversation.from_pk(1)
     pm.set_state(1)
     data = NewJSONEncoder().default(pm)
-    check_dictionary(data, {
-        'id': 1,
-        'topic': 'New Private Message!',
-        })
+    check_dictionary(data, {'id': 1, 'topic': 'New Private Message!'})
 
 
 def test_serialize_view_fail(authed_client):
@@ -152,7 +169,4 @@ def test_serialize_view_others(app, authed_client):
     pm = PrivateConversation.from_pk(4)
     pm.set_state(2)
     data = NewJSONEncoder().default(pm)
-    check_dictionary(data, {
-        'id': 4,
-        'topic': 'detingstings',
-        })
+    check_dictionary(data, {'id': 4, 'topic': 'detingstings'})

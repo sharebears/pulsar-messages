@@ -19,6 +19,7 @@ class PyTest(TestCommand):
 
     def run_tests(self):
         import pytest
+
         errno = pytest.main(self.pytest_args)
         sys.exit(errno)
 
@@ -33,13 +34,8 @@ setup(
     author='sharebears',
     author_email='sharebears@tutanota.de',
     url='https://github.com/sharebears',
-    packages=[
-        'messages',
-    ],
+    packages=['messages'],
     python_requires='>=3.7, <3.8',
-    tests_require=[
-        'pytest',
-        'mock',
-    ],
+    tests_require=['pytest', 'mock'],
     cmdclass={'test': PyTest},
 )
